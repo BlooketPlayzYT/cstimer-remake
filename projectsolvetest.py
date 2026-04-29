@@ -2,8 +2,53 @@ import random
 import pygame
 import csv
 import pandas as pd
-
+from pygame_gui import UIManager
+from pygame_gui.elements import UIScrollingContainer, UILabel
+import os
 pygame.init()
+
+def generate_csv():
+    if not os.path.exists("solves.csv"):
+        with open("solves.csv", mode="w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(["time"]) 
+def append_data(arr):
+   with open('solves.csv', mode='r') as file:
+    reader = csv.reader(file)
+    next(reader)
+    column_data = [row[0] for row in reader]
+   for value in column_data:
+      arr.append(value)
+labels = []
+def update_scrollbar():
+    global labels
+
+    for label in labels:
+        label.kill()
+    labels.clear()
+
+    y = 0
+    for time in data:
+        label = UILabel(
+            pygame.Rect((0,y),(200,30)),
+            f"{time}",
+            manager=manager,
+            container=scroll_container
+            )
+        labels.append(label)
+        y+=50
+def record_solve():
+    global data
+    
+    if not trigger_timer:
+        with open("solves.csv", mode="a", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow([f"{cube_time:.2f}"])
+    data.clear()
+    append_data(data)
+    update_scrollbar()
+
+clock = pygame.time.Clock()
 Width = 1280
 Height = 720
 fps = 240
@@ -27,16 +72,35 @@ trigger_wait = False
 ready_to_start = False
 hold_time = 0.00
 
+data = []
+
+
+#scroll bar
+FILL_COLOR = (255,0,0) 
+WINDOW_SIZE = (200,Height)
+manager = UIManager(WINDOW_SIZE)
+background = pygame.Surface(WINDOW_SIZE)
+background.fill(FILL_COLOR)
+
+scroll_container = UIScrollingContainer(
+    pygame.Rect(0, 0, 200, Height),
+    manager,
+    should_grow_automatically=True
+)
+generate_csv()
+append_data(data)
+update_scrollbar()
+
 def main(fakescreen):
     global scramble_font, timer_font, trigger_timer, trigger_wait, ready_to_start, cube_time, timer_color, hold_time, scramble
-
-    running = True
     clock = pygame.time.Clock()
+
+    running = True    
     scramble = generate_scramble()
 
     
     while running:
-        clock.tick(fps)
+        time_delta = clock.tick(fps)/1000
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -66,10 +130,11 @@ def main(fakescreen):
                         timer_color = white
                         trigger_timer = True
                         ready_to_start = False
+            manager.process_events(event)
         
         timer_wait()
         timer()
-        display(fakescreen)
+        display(fakescreen,time_delta)
     pygame.quit()
 
 def timer_wait():
@@ -86,12 +151,6 @@ def timer():
     global cube_time, trigger_timer
     if trigger_timer == True:
         cube_time += 1/fps
-
-def record_solve():
-    if not trigger_timer:
-        with open("solves.csv", mode="a", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow([f"{cube_time:.2f}"])
 
 def ao5():
     last_5 = pd.read_csv("solves.csv").iloc[-5:, 0].astype(float).tolist()
@@ -121,16 +180,18 @@ def display_scramble(fakescreen):
     global trigger_timer
     if not trigger_timer:
         displayed_scramble = scramble_font.render(scramble, True, scramble_color)
-        fakescreen.blit(displayed_scramble, (100, 0))
+        fakescreen.blit(displayed_scramble, (230, 0))
 
-def display(fakescreen):    
+def display_scrollbar(fakescreen,manager,time_delta):
+    manager.update(time_delta)
+    fakescreen.blit(background, (0, 0))
+    manager.draw_ui(fakescreen)
+
+def display(fakescreen, time_delta):    
     fakescreen.fill(black)
     display_time(fakescreen)
     display_scramble(fakescreen)
+    display_scrollbar(fakescreen,manager, time_delta)
     pygame.display.flip()
-
 if __name__ == "__main__":
     main(realscreen)
-
-
-        
